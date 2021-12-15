@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Who Let The Doge Chat?</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        @keyframes dogeAni{
+            0%{
+
+            }20%{
+                 transform: rotateZ(200deg);
+             }40%{
+                  transform: rotateX(200deg);
+              }60%{
+                   transform: rotateY(200deg);
+               }80%{
+                    transform: rotateZ(200deg);
+                }
+        }
+        #doge{
+            animation: dogeAni 20s infinite forwards;
+        }
+        .el-group-list.el-radio-group {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .el-group-list.el-radio-group .el-radio-button:first-child .el-radio-button__inner,
+        .el-group-list.el-radio-group .el-radio-button:last-child .el-radio-button__inner,
+        .el-group-list.el-radio-group  .el-radio-button:first-child .el-radio-button__inner,
+        .el-group-list.el-radio-group .el-radio-button__inner
+        {
+            border-radius: 0px !important;
+            border: none !important;
+        }
+
+        .el-group-list.el-radio-group .el-radio-button{
+            border-bottom: 1px solid #F7F7F7 !important;
+        }
+
+        .el-group-list.el-radio-group{
+            border: 1px solid #dcdfe6;
+        }
+
+        .el-group-list.el-radio-group > label > span{
+            width: 100%;
+            text-align: left;
+            padding-left: 20px;
+        }
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        h3{
+            text-align: center;
+        }
+        *::-webkit-scrollbar-track{
+            box-shadow   : inset 0 0 5px rgba(0, 0, 0, 0.2);
+            background   : #ededed;
+            border-radius: 10px;
+        }
+        *::-webkit-scrollbar{
+            width : 10px;  /*高宽分别对应横竖滚动条的尺寸*/
+            height: 1px;
+        }
+        *::-webkit-scrollbar-thumb{
+            border-radius   : 10px;
+            background-color: skyblue;
+            background-image: -webkit-linear-gradient(
+                    45deg,
+                    rgba(255, 255, 255, 0.2) 25%,
+                    transparent 25%,
+                    transparent 50%,
+                    rgba(255, 255, 255, 0.2) 50%,
+                    rgba(255, 255, 255, 0.2) 75%,
+                    transparent 75%,
+                    transparent
+            );
+        }
+    </style>
+</head>
+<body>
+    <div id="app" style="width: 100%;height: 900px;border: 1px solid red;display: flex;flex-direction: row;justify-content: center;">
+        <div id="left" style="height: 100%;width: 70%;background-color:  #117a8b">
+            <div id="msgPanel" style="width: 100%;height: 50%;"></div>
+            <div style="width: 100%;height: 25%;background-color: cornflowerblue;overflow-y: scroll;">
+                <h3>精选语录</h3>
+                <el-radio-group v-model="selectedPhrase" class="x-fillitem el-group-list" >
+                    <el-radio-button v-for="(o,i) in phrases" :key="i" :label="i">{{o}}</el-radio-button>
+                </el-radio-group>
+            </div>
+            <div id="msgInput" style="width: 100%;height: 15%;background-color: #117a8b;;">
+                <el-input
+                        type="textarea"
+                        placeholder="请输入内容"
+                        v-model="msgInput"
+                        maxlength="30"
+                        show-word-limit
+                        resize="none"
+                        rows="6"
+                >
+                </el-input>
+                <div style="display: flex;flex-direction: column;align-items: end;width: 100%;margin-top: 2px;margin-right: 2px;">
+                    <el-button @click="sendMsg()" id="msgSendButton" style="display: none">发送消息</el-button>
+                </div>
+            </div>
+
+        </div>
+        <div id="right" style="background-color:blanchedalmond;width: 30%;height: 100%;display: flex;flex-direction: column;justify-content: space-between;">
+            <div id="statusBar" style="width: 100%;background-color: #8fd19e;">
+                <h1>{{statusTxt}}</h1>
+            </div>
+            <div style="width: 100%;display: flex;justify-content: center;">
+                <img @click="dontTouchMe()" id="doge" src="http://starset.vip/img/doge.png" alt="" ondragstart="return false;" style="cursor: pointer;">
+            </div>
+            <div id="onlineListDiv" style="width: 100%;height: 70%;background-color: #8fd19e;overflow-y: scroll;">
+                <h3>在线用户</h3>
+                <el-radio-group v-model="selectedUserId" class="x-fillitem el-group-list" :change="userSelectionChanged()">
+                    <el-radio-button v-for="(o,i) in onlineList" :key="i" :label="o">{{o}}</el-radio-button>
+                </el-radio-group>
+            </div>
+            <div id="loginDiv" style="width: 100%;">
+                <el-input v-model="userNameInput" placeholder="用户名"></el-input>
+                <el-input  v-model="passwordInput" placeholder="密码"></el-input>
+                <div style="display: flex;flex-direction: column;align-items: end;width: 100%;margin-top: 2px;">
+                    <el-button @click="login()" id="loginButton" >登录</el-button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+    const vm =new Vue({
+        el:'#app',
+        data:{
+            ws:null,
+            userNameInput:'',
+            passwordInput:'',
+            msgInput:'',
+            statusTxt:'未登录',
+            selectedUserId:'AV8D',
+            selectedPhrase:0,
+            onlineList:[
+                'AV8D',
+            ],
+            phrases:[
+                '知识不能代替友谊，比起失去你，我宁愿做个白痴 ---派大星',
+                '谁都会犯错误，所以人们才会在铅笔的另一头装上橡皮 ---派大星',
+                '您脑子好使嘛?',
+            ],
+        },
+        mounted(){
+            this.ws = new WebSocket("ws://127.0.0.1:8889/ws");
+            this.ws.onopen = function () {
+                vm.statusTxt="已连接服务器";
+            }
+            this.ws.onerror = function () {
+                vm.statusTxt="链路出错";
+            }
+            this.ws.onclose = function () {
+                vm.statusTxt="连接已断开";
+            }
+            this.ws.onmessage = function (e) {
+                const res = JSON.parse(e.data);
+                switch (res.code) {
+                    case "101"://登录成功
+                        vm.$notify({
+                            type:'success',
+                            title:'登录成功',
+                        });
+                        vm.statusTxt="你好,"+vm.userNameInput;
+                        document.getElementById("loginDiv").style.display='none';
+                        document.getElementById("msgSendButton").style.display='block';
+                        const msg = {'code':'305'};
+                        vm.ws.send(JSON.stringify(msg));
+                        break;
+                    case "102"://登录失败s
+                        vm.$notify({
+                            type:'error',
+                            title:'登录失败',
+                        });
+                        break;
+                    case "103"://注册成功
+                        vm.$notify({
+                            type:'success',
+                            title:'注册成功',
+                        });
+                        break;
+                    case "104"://注册失败
+                        vm.$notify({
+                            type:'error',
+                            title:'注册失败',
+                        });
+                        break;
+                    case "301"://用户上线
+                        vm.onlineList.push(res.from);
+                        vm.$notify({
+                            type:'success',
+                            title:'用户上线',
+                            message:res.from
+                        });
+                        break;
+                    case "302"://用户下线
+                        vm.onlineList.splice(vm.onlineList.indexOf(res.from),1);
+                        vm.$notify({
+                            type:'error',
+                            title:'用户下线',
+                            message:res.from
+                        });
+                        break;
+                    case "303":case "304"://群聊消息//私聊消息
+                        const time = new Date().toLocaleTimeString()+" : ";
+                        const p = document.createElement("p");
+                        if(res.code ==='303'){
+                            p.innerText=time+res.from +'说:' + res.content;
+                            p.style.color="#50ff5e";
+
+                        }else{
+                            p.innerText=time+res.from +'对我说:' + res.content;
+                            p.style.color="#fcff24";
+                        }
+                        document.getElementById("msgPanel").append(p);
+                        vm.$notify({
+                            type:'success',
+                            title:'您有新的消息,请注意查收!',
+                            message:res.from
+                        });
+                        break;
+                    case "305"://在线列表
+                        vm.onlineList = vm.onlineList.concat(res.onlineList);
+                        break;
+                }
+            }
+        },
+        methods:{
+            login(){
+                const msg = {
+                    'code':"201",
+                    'userName':vm.userNameInput,
+                    'passWord':vm.passwordInput
+                };
+                vm.ws.send(JSON.stringify(msg));
+            },
+            sendMsg(){
+                const x = document.createElement("p");
+                const time = new Date().toLocaleTimeString()+" : ";
+                const msg = {
+                    'code':null,
+                    'to':null,
+                    'content':vm.msgInput
+                };
+                if(vm.selectedUserId === 'AV8D') {
+                    msg.code='303';
+                    x.innerText= time+'我对'+'所有人说:' + msg.content;
+                    x.style.color="#50ff5e";
+                }else {
+                    msg.to = vm.selectedUserId;
+                    msg.code = '304';
+                    x.innerText=time+'我对'+msg.to+'说:' + msg.content;
+                    x.style.color="#fcff24";
+                }
+                document.getElementById("msgPanel").append(x);
+                vm.ws.send(JSON.stringify(msg));
+            },
+            userSelectionChanged(v){
+                const t=document.getElementById("msgSendButton");
+                if(this.selectedUserId ==='AV8D') t.innerText= "发送给所有人";
+                else t.innerText= "发送给"+this.selectedUserId;
+
+            },
+            dontTouchMe(){
+                vm.$notify({
+                    type:'warning',
+                    title:'警告',
+                    message:"莫挨劳资"
+                });
+            }
+        }
+    });
+</script>
